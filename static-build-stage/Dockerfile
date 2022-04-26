@@ -20,7 +20,7 @@ ENV BUILD="unzip \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libdc1394-22-dev"
+    libdc1394-dev"
 
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -58,7 +58,10 @@ RUN mkdir /tmp/opencv && \
     unzip opencv.zip && \
     wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.zip && \
     unzip opencv_contrib.zip && \
-    mkdir /tmp/opencv/opencv-${OPENCV_VERSION}/build && cd /tmp/opencv/opencv-${OPENCV_VERSION}/build && \
+    mkdir /tmp/opencv/opencv-${OPENCV_VERSION}/build
+RUN cmake --version
+
+RUN cd /tmp/opencv/opencv-${OPENCV_VERSION}/build && \
     cmake \
     -D CMAKE_BUILD_TYPE=RELEASE \
     -D CMAKE_INSTALL_PREFIX=/usr/local \
@@ -67,6 +70,7 @@ RUN mkdir /tmp/opencv && \
     -D WITH_GTK=OFF \
     -D WITH_1394=OFF \
     -D WITH_TIFF=OFF \
+    -D BUILD_PROTOBUF=ON \
     -D INSTALL_C_EXAMPLES=NO \
     -D INSTALL_PYTHON_EXAMPLES=NO \
     -D BUILD_ANDROID_EXAMPLES=NO \
@@ -80,24 +84,32 @@ RUN mkdir /tmp/opencv && \
     -D BUILD_opencv_python3=NO \
     -D BUILD_SHARED_LIBS=NO \
     -D OPENCV_GENERATE_PKGCONFIG=YES .. && \
-    make -j12 && \
+    make -j1 && \
     make install && \
     cd && rm -rf /tmp/opencv
 
 #RUN apk del ${DEV_DEPS} && \
 #    rm -rf /var/cache/apk/*
 ENV CGO_CPPFLAGS -I/usr/local/include/opencv4
-ENV PKG_CONFIG_PATH /usr/local/lib64/pkgconfig
-ENV LD_LIBRARY_PATH /usr/local/lib64
+ENV PKG_CONFIG_PATH /usr/local/lib/pkgconfig
+ENV LD_LIBRARY_PATH /usr/local/lib
 ENV CGO_CXXFLAGS "--std=c++1z"
 #ENV CGO_LDFLAGS "--static -L/usr/local/lib -lopencv_core -lopencv_face -lopencv_videoio -lopencv_imgproc -lopencv_highgui -lopencv_imgcodecs -lopencv_objdetect -lopencv_features2d -lopencv_video -lopencv_dnn -lopencv_xfeatures2d -lopencv_plot -lopencv_tracking"
-ENV CGO_LDFLAGS "--static -L/usr/local/lib -L/usr/local/lib/opencv4/3rdparty -lopencv_gapi -lopencv_stitching -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_dnn_objdetect -lopencv_dnn_superres -lopencv_dpm -lopencv_highgui -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hfs -lopencv_img_hash -lopencv_intensity_transform -lopencv_line_descriptor -lopencv_mcc -lopencv_quality -lopencv_rapid -lopencv_reg -lopencv_rgbd -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_superres -lopencv_optflow -lopencv_surface_matching -lopencv_tracking -lopencv_datasets -lopencv_text -lopencv_dnn -lopencv_plot -lopencv_videostab -lopencv_videoio -lopencv_xfeatures2d -lopencv_shape -lopencv_ml -lopencv_ximgproc -lopencv_video -lopencv_xobjdetect -lopencv_objdetect -lopencv_calib3d -lopencv_imgcodecs -lopencv_features2d -lopencv_flann -lopencv_xphoto -lopencv_photo -lopencv_imgproc -lopencv_core -littnotify -llibprotobuf -llibwebp -llibopenjp2 -lIlmImf -lquirc -lippiw -lippicv -lade -ljpeg -lpng -lz -ltiff -lfreetype -lharfbuzz -ljbig -llzma -lm -lpthread -lrt -lc -ldl"
+ENV CGO_LDFLAGS "--static -L/usr/local/lib -L/usr/local/lib/opencv4/3rdparty -lopencv_gapi -lopencv_stitching -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_dnn_objdetect -lopencv_dnn_superres -lopencv_dpm -lopencv_highgui -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hfs -lopencv_img_hash -lopencv_intensity_transform -lopencv_line_descriptor -lopencv_mcc -lopencv_quality -lopencv_rapid -lopencv_reg -lopencv_rgbd -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_superres -lopencv_optflow -lopencv_surface_matching -lopencv_tracking -lopencv_datasets -lopencv_text -lopencv_dnn -lopencv_plot -lopencv_videostab -lopencv_videoio -lopencv_xfeatures2d -lopencv_shape -lopencv_ml -lopencv_ximgproc -lopencv_video -lopencv_xobjdetect -lopencv_objdetect -lopencv_calib3d -lopencv_imgcodecs -lopencv_features2d -lopencv_flann -lopencv_xphoto -lopencv_photo -lopencv_imgproc -lopencv_core -littnotify -llibprotobuf -llibwebp -llibopenjp2 -lIlmImf -lquirc -lade -ljpeg -lpng -lz -ltiff -lfreetype -lharfbuzz -ljbig -llzma -lm -lpthread -lrt -lc -ldl"
 COPY version /version
 
 WORKDIR /tmp
-RUN wget https://go.dev/dl/go1.18.linux-amd64.tar.gz
-RUN rm -rf /usr/local/go && tar -C /usr/local -xzf go1.18.linux-amd64.tar.gz
+RUN wget https://go.dev/dl/go1.18.linux-arm64.tar.gz
+RUN rm -rf /usr/local/go && tar -C /usr/local -xzf go1.18.linux-arm64.tar.gz
 ENV PATH $PATH:/usr/local/go/bin
 RUN go version
 WORKDIR /version
-RUN go mod init gocv-version && go mod tidy && go build -tags static -o . && ./gocv-version
+
+RUN go mod init gocv-version && go mod tidy 
+COPY cgo_static.go /root/go/pkg/mod/gocv.io/x/gocv@v0.30.0/
+RUN go build -tags static -o . && ./gocv-version
+
+#COPY dictpenUiAutomationTest /dictpenUiAutomationTest
+#WORKDIR /dictpenUiAutomationTest 
+#RUN rm go.mod go.sum 
+#RUN go mod init gitlab.corp.youdao.com/hejd/dictpenuiautomationtest && go mod tidy && go build -tags static .
