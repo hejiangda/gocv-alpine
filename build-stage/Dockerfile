@@ -63,7 +63,7 @@ RUN mkdir /tmp/opencv && \
     cd && rm -rf /tmp/opencv
 
 RUN apk del ${DEV_DEPS} && \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/cache/    gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnuapk/*
 
 ENV PKG_CONFIG_PATH /usr/local/lib64/pkgconfig
 ENV LD_LIBRARY_PATH /usr/local/lib64
