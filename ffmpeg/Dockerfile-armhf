@@ -1,0 +1,69 @@
+FROM ubuntu
+
+LABEL maintainer="Jiangda He. mail: hejiangda@gmail.com"
+
+ENV OPENCV_VERSION=4.5.5
+
+ENV BUILD="autoconf \
+  ca-certificates \
+  automake \
+  build-essential \
+  crossbuild-essential-armhf \
+  cmake \
+  git-core \
+  meson \
+  ninja-build \
+  pkg-config \
+  texinfo \
+  wget \
+  yasm \
+  zlib1g-dev \
+  nasm"
+
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN apt-get update && apt-get install -y --no-install-recommends ${BUILD}
+
+
+
+WORKDIR /root
+RUN mkdir -p ffmpeg_sources bin
+
+RUN cd /root/ffmpeg_sources && \
+wget -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
+tar xjvf ffmpeg-snapshot.tar.bz2
+
+RUN mkdir -p /root/zlib && cd /root/zlib && wget -O zlib.tar.gz https://zlib.net/zlib-1.2.12.tar.gz && \
+    tar xzvf zlib.tar.gz && cd zlib-1.2.12/ && mkdir build && \
+    CHOST=arm CC=arm-linux-gnueabihf-gcc \
+    AR=arm-linux-gnueabihf-ar \
+    RANLIB=arm-linux-gnueabihf-ranlib \
+    ./configure --prefix=$(pwd)/build --includedir=/usr/arm-linux-gnueabihf/include --libdir=/usr/arm-linux-gnueabihf/lib && \
+    make -j$(nproc)
+
+RUN cd /root/zlib/zlib-1.2.12/ && make install
+
+RUN cd /root/ffmpeg_sources/ffmpeg && \
+PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
+  --prefix="$HOME/ffmpeg_build" \
+  --enable-cross-compile \
+  --cross-prefix=arm-linux-gnueabihf- \
+  --target-os=linux \
+  --cc=arm-linux-gnueabihf-gcc \
+  --cxx=rm-linux-gnueabihf-g++ \
+  --pkg-config-flags="--static" \
+  --extra-cflags="-I$HOME/ffmpeg_build/include" \
+  --extra-ldflags="--static -L$HOME/ffmpeg_build/lib" \
+  --extra-libs="-lpthread -lm" \
+  --arch="arm" \
+  --bindir="$HOME/bin" \
+    --disable-x86asm --enable-parsers --disable-decoders --enable-decoder=h264 --enable-decoder=aac --disable-encoders --disable-muxers --enable-muxer=mp4 --disable-demuxers  --disable-filters --disable-bsfs --enable-ffmpeg \
+    --enable-encoder=mjpeg,png \
+    --enable-decoder=mjpeg,png \
+    --enable-demuxer=image2,image2pipe \
+    --enable-protocol=file \
+    --enable-zlib \
+    && \
+PATH="$HOME/bin:$PATH" make -j12 && \
+make install -j12 && \
+hash -r
